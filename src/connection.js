@@ -1,11 +1,12 @@
 'use strict'
 
 const identify = require('libp2p-identify')
-const circuit = require('libp2p-circuit').Listener
 const multistream = require('multistream-select')
 const waterfall = require('async/waterfall')
 const debug = require('debug')
 const log = debug('libp2p:swarm:connection')
+
+const Circuit = require('libp2p-circuit')
 
 const protocolMuxer = require('./protocol-muxer')
 const plaintext = require('./plaintext')
@@ -76,11 +77,20 @@ module.exports = function connection (swarm) {
       })
     },
 
-    relay () {
+    relay (config) {
       swarm.relay = true
-      circuit.listener(swarm).on('connection', (conn) => {
-        protocolMuxer(swarm.protocols, conn)
+      let circuitDialer = new Circuit.Dialer(swarm, config)
+      circuitDialer.installSwarmHandler((err, conn) => {
+        if (err) {
+          log(err)
+          return
+        }
+
+        if (conn) {
+          protocolMuxer(swarm.protocols, conn)
+        }
       })
+      swarm.transport.add(Circuit.tag, circuitDialer)
     },
 
     crypto (tag, encrypt) {

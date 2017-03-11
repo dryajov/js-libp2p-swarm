@@ -11,6 +11,7 @@ const connection = require('./connection')
 const dial = require('./dial')
 const protocolMuxer = require('./protocol-muxer')
 const plaintext = require('./plaintext')
+const Circuit = require('libp2p-circuit')
 
 exports = module.exports = Swarm
 
@@ -65,18 +66,18 @@ function Swarm (peerInfo) {
     const addrs = pi.multiaddrs
 
     // Only listen on transports we actually have addresses for
-    return Object.keys(this.transports).filter((ts) => {
+    const transports = Object.keys(this.transports).filter((ts) => {
       // ipfs multiaddrs are not dialable so we drop them here
       let dialable = addrs.map((addr) => {
         // webrtc-star needs the /ipfs/QmHash
         if (addr.toString().indexOf('webrtc-star') > 0) {
           return addr
+        } else if (addr.toString().indexOf('p2p-circuit') > 0) {
+          return addr
         }
 
         if (includes(addr.protoNames(), 'ipfs')) {
           return addr.decapsulate('ipfs')
-        } else if (includes(addr.protoNames(), 'p2p-circuit')) {
-          return addr.decapsulate('p2p-circuit')
         }
 
         return addr
@@ -84,6 +85,13 @@ function Swarm (peerInfo) {
 
       return this.transports[ts].filter(dialable).length > 0
     })
+
+    const circtuit = transports.splice(transports.indexOf(Circuit.tag), 1)
+    if (circtuit[0]) {
+      // TODO: we need to have priorities for transports
+      transports.push(circtuit[0]) // circuit should be the last one to be dialed always.
+    }
+    return transports
   }
 
   // higher level (public) API
@@ -93,8 +101,17 @@ function Swarm (peerInfo) {
   this.listen = (callback) => {
     each(this.availableTransports(peerInfo), (ts, cb) => {
       // Listen on the given transport
-      this.transport.listen(ts, {}, null, cb)
-    }, callback)
+      this.transport.listen(ts, {}, this.transports[ts].handler || null, cb)
+    }, (err) => {
+      // TODO: it would be nice to define swarm events such as
+      // listening, error, handler adder/removed, etc...
+      if (err) {
+        this.emit('error', err)
+        callback(err)
+      }
+      this.emit('listening')
+      callback()
+    })
   }
 
   this.handle = (protocol, handlerFunc, matchFunc) => {
@@ -141,18 +158,15 @@ function Swarm (peerInfo) {
           cb()
         })
       }, cb),
-      // (cb) => {
-      //   each(this.transports, (transport, cb) => {
-      //     each(transport.listeners, (listener, cb) => {
-      //       listener.close(cb)
-      //     }, cb)
-      //   }, cb)
-      // },
       (cb) => {
-        each(Object.keys(this.transports), (key, cb) => {
-          this.transport.close(key, cb)
+        each(this.transports, (transport, cb) => {
+          each(transport.listeners, (listener, cb) => {
+            listener.close(cb)
+          }, cb)
         }, cb)
       }
-    ], callback)
+    ], (err) => {
+      callback(err)
+    })
   }
 }

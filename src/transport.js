@@ -57,7 +57,12 @@ module.exports = function (swarm) {
 
       // TODO improve in the future to make all the dials in paralell
       function next (multiaddr) {
-        const conn = t.dial(multiaddr, () => {
+        const conn = t.dial(multiaddr, (err) => {
+          if (err) {
+            log(err)
+            return next(multiaddrs.shift())
+          }
+
           proxyConn.setInnerConn(conn)
           callback(null, proxyConn)
         })
