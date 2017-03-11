@@ -78,10 +78,17 @@ module.exports = function dial (swarm) {
     }
 
     function attemptDial (pi, cb) {
-      const tKeys = swarm.availableTransports(pi)
+      let tKeys = swarm.availableTransports(pi)
 
       if (tKeys.length === 0) {
-        return cb(new Error('No available transport to dial to'))
+        if (this.relay) {
+          // force relay if it's enabled
+          tKeys = ['Circuit']
+          // create a generic relay addres
+          pi.multiaddrs.addSafe(`/p2p-circuit/ipfs/${pi.peerInfo.id}`)
+        } else {
+          return cb(new Error('No available transport to dial to'))
+        }
       }
 
       nextTransport(tKeys.shift())

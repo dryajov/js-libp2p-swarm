@@ -62,6 +62,7 @@
     "interface-connection": "~0.3.1",
     "ip-address": "^5.8.6",
     "libp2p-identify": "~0.3.2",
+    "libp2p-circuit": "~0.0.1",
     "lodash.includes": "^4.3.0",
     "multiaddr": "^2.2.1",
     "multistream-select": "~0.13.4",
