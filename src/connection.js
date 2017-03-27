@@ -1,6 +1,7 @@
 'use strict'
 
 const identify = require('libp2p-identify')
+const circuit = require('libp2p-circuit').Listener
 const multistream = require('multistream-select')
 const waterfall = require('async/waterfall')
 const debug = require('debug')
@@ -72,6 +73,13 @@ module.exports = function connection (swarm) {
       swarm.identify = true
       swarm.handle(identify.multicodec, (protocol, conn) => {
         identify.listener(conn, swarm._peerInfo)
+      })
+    },
+
+    relay () {
+      swarm.relay = true
+      circuit.listener(swarm).on('connection', (conn) => {
+        protocolMuxer(swarm.protocols, conn)
       })
     },
 

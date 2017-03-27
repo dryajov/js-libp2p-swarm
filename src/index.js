@@ -52,6 +52,9 @@ function Swarm (peerInfo) {
   // is the Identify protocol enabled?
   this.identify = false
 
+  // is relay enabled?
+  this.relay = false
+
   // Crypto details
   this.crypto = plaintext
 
@@ -72,7 +75,10 @@ function Swarm (peerInfo) {
 
         if (includes(addr.protoNames(), 'ipfs')) {
           return addr.decapsulate('ipfs')
+        } else if (includes(addr.protoNames(), 'p2p-circuit')) {
+          return addr.decapsulate('p2p-circuit')
         }
+
         return addr
       })
 
@@ -135,11 +141,16 @@ function Swarm (peerInfo) {
           cb()
         })
       }, cb),
+      // (cb) => {
+      //   each(this.transports, (transport, cb) => {
+      //     each(transport.listeners, (listener, cb) => {
+      //       listener.close(cb)
+      //     }, cb)
+      //   }, cb)
+      // },
       (cb) => {
-        each(this.transports, (transport, cb) => {
-          each(transport.listeners, (listener, cb) => {
-            listener.close(cb)
-          }, cb)
+        each(Object.keys(this.transports), (key, cb) => {
+          this.transport.close(key, cb)
         }, cb)
       }
     ], callback)
